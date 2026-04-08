@@ -15,8 +15,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { audio_url, photo_url, title } =
+  let { audio_url, photo_url, title } =
     req.method === "GET" ? req.query : req.body;
+
+  if (req.method === "GET") {
+    console.log("raw audio_url:", audio_url);
+    if (audio_url) {
+      audio_url = decodeURIComponent(audio_url).replace(/^\{\{|\}\}$/g, "").trim();
+      console.log("decoded audio_url:", audio_url);
+    }
+  }
 
   if (!audio_url || !photo_url) {
     return res.status(400).json({ error: "audio_url and photo_url are required" });
