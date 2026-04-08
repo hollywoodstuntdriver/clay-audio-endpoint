@@ -11,11 +11,12 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { audio_url, photo_url, title } = req.body;
+  const { audio_url, photo_url, title } =
+    req.method === "GET" ? req.query : req.body;
 
   if (!audio_url || !photo_url) {
     return res.status(400).json({ error: "audio_url and photo_url are required" });
