@@ -59,7 +59,9 @@ export default async function handler(req, res) {
     }
 
     // 5. Return public URL
-    const audio_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET}/${filename}`;
+    const supabaseUrl = process.env.SUPABASE_URL.trim();
+    const bucket = process.env.SUPABASE_BUCKET.trim();
+    const audio_url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filename}`;
     return res.status(200).json({ audio_url });
 
   } catch (err) {
