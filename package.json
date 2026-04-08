@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@fal-ai/client": "^0.15.0",
+    "@fal-ai/client": "^1.9.5",
     "@supabase/supabase-js": "^2.39.0"
   }
 }
