@@ -65,6 +65,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ video_url });
 
   } catch (err) {
-    return res.status(500).json({ error: "Unexpected error", detail: err.message });
+    return res.status(500).json({ error: "Unexpected error", detail: err.message, body: err.body ?? null });
   }
 }
