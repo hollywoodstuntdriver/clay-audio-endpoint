@@ -1,6 +1,6 @@
 export const maxDuration = 300;
 
-import * as fal from "@fal-ai/client";
+import { fal } from "@fal-ai/client";
 import { createClient } from "@supabase/supabase-js";
 
 fal.config({ credentials: process.env.FAL_KEY });
