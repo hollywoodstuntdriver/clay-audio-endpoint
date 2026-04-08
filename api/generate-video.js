@@ -31,10 +31,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Submit to OmniHuman and poll until complete
+    // 1. Fetch the photo and re-host it in Supabase so fal.ai can access it
+    const photoRes = await fetch(photo_url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "image/*",
+      },
+    });
+    if (!photoRes.ok) {
+      return res.status(500).json({ error: "Failed to fetch photo_url", detail: photoRes.statusText });
+    }
+    const photoBuffer = Buffer.from(await photoRes.arrayBuffer());
+    const contentType = photoRes.headers.get("content-type") || "image/jpeg";
+    const ext = contentType.includes("png") ? "png" : "jpg";
+    const photoFilename = `photo-${Date.now()}.${ext}`;
+
+    const { error: photoUploadError } = await supabase.storage
+      .from("photos")
+      .upload(photoFilename, photoBuffer, { contentType, upsert: false });
+
+    if (photoUploadError) {
+      return res.status(500).json({ error: "Photo upload failed", detail: photoUploadError.message });
+    }
+
+    const hosted_photo_url = `${process.env.SUPABASE_URL.trim()}/storage/v1/object/public/photos/${photoFilename}`;
+
+    // 2. Submit to OmniHuman and poll until complete
     const result = await fal.subscribe("fal-ai/bytedance/omnihuman/v1.5", {
       input: {
-        image_url: photo_url,
+        image_url: hosted_photo_url,
         audio_url: audio_url,
       },
       pollInterval: 5000,
