@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+
 import { fal } from "@fal-ai/client";
 import { createClient } from "@supabase/supabase-js";
 
@@ -7,6 +9,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL.trim(),
   process.env.SUPABASE_SERVICE_ROLE_KEY.trim()
 );
+
+const MODEL = "fal-ai/bytedance/omnihuman/v1.5";
 
 export default async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "GET") {
@@ -21,38 +25,44 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Check status
-    const status = await fal.queue.status("fal-ai/bytedance/omnihuman/v1.5", {
-      requestId: request_id,
-    });
+    // Poll internally until done (max ~4 minutes, 5s between polls)
+    const maxAttempts = 48;
+    const pollInterval = 5000;
+    let result = null;
 
-    if (status.status === "IN_QUEUE" || status.status === "IN_PROGRESS") {
+    for (let i = 0; i < maxAttempts; i++) {
+      const status = await fal.queue.status(MODEL, { requestId: request_id });
+      console.log(`poll ${i + 1}: status=${status.status}`);
+
+      if (status.status === "COMPLETED") {
+        result = await fal.queue.result(MODEL, { requestId: request_id });
+        break;
+      }
+
+      if (status.status === "FAILED") {
+        return res.status(500).json({ error: "fal.ai job failed", detail: status });
+      }
+
+      // IN_QUEUE or IN_PROGRESS — wait and retry
+      await new Promise((r) => setTimeout(r, pollInterval));
+    }
+
+    if (!result) {
       return res.status(200).json({ status: "processing" });
     }
 
-    if (status.status === "FAILED") {
-      return res.status(500).json({ error: "fal.ai job failed", detail: status });
-    }
-
-    // 2. Fetch result
-    const result = await fal.queue.result("fal-ai/bytedance/omnihuman/v1.5", {
-      requestId: request_id,
-    });
-
-    console.log("fal result:", JSON.stringify(result));
-
-    // fal v1.x returns data directly, not wrapped in .data
     const videoUrl = result?.data?.video?.url ?? result?.video?.url;
+    console.log("fal result videoUrl:", videoUrl);
 
     if (!videoUrl) {
       return res.status(500).json({ error: "No video URL in result", detail: result });
     }
 
-    // 3. Download video
+    // Download video
     const videoRes = await fetch(videoUrl);
     const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
 
-    // 4. Upload to Supabase
+    // Upload to Supabase
     const slug = (title || "video")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-")
@@ -67,7 +77,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Supabase upload failed", detail: uploadError.message });
     }
 
-    // 5. Return public URL
     const video_url = `${process.env.SUPABASE_URL.trim()}/storage/v1/object/public/video/${filename}`;
     return res.status(200).json({ status: "completed", video_url });
 
