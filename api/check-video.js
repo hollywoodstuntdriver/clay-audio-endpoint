@@ -39,10 +39,13 @@ export default async function handler(req, res) {
       requestId: request_id,
     });
 
-    const videoUrl = result.data?.video?.url;
+    console.log("fal result:", JSON.stringify(result));
+
+    // fal v1.x returns data directly, not wrapped in .data
+    const videoUrl = result?.data?.video?.url ?? result?.video?.url;
 
     if (!videoUrl) {
-      return res.status(500).json({ error: "No video URL in result", detail: result.data });
+      return res.status(500).json({ error: "No video URL in result", detail: result });
     }
 
     // 3. Download video

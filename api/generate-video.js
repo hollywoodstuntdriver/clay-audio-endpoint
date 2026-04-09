@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     console.log("raw audio_url:", audio_url);
     if (audio_url) {
-      audio_url = decodeURIComponent(audio_url).replace(/^\{\{|\}\}$/g, "").trim();
+      audio_url = decodeURIComponent(audio_url).replace(/\{\{|\}\}/g, "").trim();
       console.log("decoded audio_url:", audio_url);
     }
   }
