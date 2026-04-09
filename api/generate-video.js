@@ -1,5 +1,3 @@
-export const maxDuration = 300;
-
 import { fal } from "@fal-ai/client";
 import { createClient } from "@supabase/supabase-js";
 
@@ -34,7 +32,7 @@ export default async function handler(req, res) {
     // 1. Fetch the photo and re-host it in Supabase so fal.ai can access it
     const photoRes = await fetch(photo_url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "image/*",
       },
     });
@@ -56,47 +54,15 @@ export default async function handler(req, res) {
 
     const hosted_photo_url = `${process.env.SUPABASE_URL.trim()}/storage/v1/object/public/photos/${photoFilename}`;
 
-    // 2. Submit to OmniHuman and poll until complete
-    const result = await fal.subscribe("fal-ai/bytedance/omnihuman/v1.5", {
+    // 2. Submit to fal.ai queue and return request_id immediately
+    const { request_id } = await fal.queue.submit("fal-ai/bytedance/omnihuman/v1.5", {
       input: {
         image_url: hosted_photo_url,
         audio_url: audio_url,
       },
-      pollInterval: 5000,
     });
 
-    const videoUrl = result.data?.video?.url;
-
-    if (!videoUrl) {
-      return res.status(500).json({ error: "No video URL in fal.ai response", detail: result.data });
-    }
-
-    // 2. Fetch the video
-    const videoRes = await fetch(videoUrl);
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-
-    // 3. Build filename
-    const slug = (title || "video")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "-")
-      .slice(0, 40);
-    const filename = `${slug}-${Date.now()}.mp4`;
-
-    // 4. Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("video")
-      .upload(filename, videoBuffer, {
-        contentType: "video/mp4",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      return res.status(500).json({ error: "Supabase upload failed", detail: uploadError.message });
-    }
-
-    // 5. Return public URL
-    const video_url = `${process.env.SUPABASE_URL.trim()}/storage/v1/object/public/video/${filename}`;
-    return res.status(200).json({ video_url });
+    return res.status(200).json({ request_id, title: title || "video" });
 
   } catch (err) {
     return res.status(500).json({ error: "Unexpected error", detail: err.message, body: err.body ?? null });
